@@ -24,7 +24,7 @@ const contributeds = (sequelize, DataTypes) => {
         allowNull: true,
       },
       para_id: {
-        type: DataTypes.STRING,
+        type: DataTypes.INTEGER,
       },
       balance_of: {
         type: DataTypes.STRING,

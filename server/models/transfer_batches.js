@@ -13,11 +13,17 @@ const transfer_batches = (sequelize, DataTypes) => {
       extrinsic_id: {
         type: DataTypes.INTEGER,
       },
+      extrinsic_hash: {
+        type: DataTypes.STRING,
+      },
       block_height: {
         type: DataTypes.INTEGER,
       },
       block_timestamp: {
         type: DataTypes.DATE,
+      },
+      block_hash: {
+        type: DataTypes.STRING,
       },
       from: {
         type: DataTypes.STRING,
@@ -31,7 +37,7 @@ const transfer_batches = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
       },
       para_id: {
-        type: DataTypes.STRING,
+        type: DataTypes.INTEGER,
       },
       referrer: {
         type: DataTypes.STRING,
