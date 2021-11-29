@@ -388,7 +388,7 @@ const Contributions = {
     ) => {
       // 如果不传参数，则返回所有campaign列表
       let condition = {
-        attributes: ["block_timestamp", "para_id", "balance"],
+        attributes: ["from", "block_timestamp", "para_id", "balance"],
         order: [["block_timestamp", "DESC"]],
         raw: true,
       };
@@ -430,8 +430,9 @@ const Contributions = {
       let result = await models.TransferBatches.findAll(condition);
 
       let inviting_list = result.map(
-        ({ block_timestamp, para_id, balance }) => {
+        ({ from, block_timestamp, para_id, balance }) => {
           return {
+            invitee: from,
             timestamp: block_timestamp,
             paraId: para_id,
             balance,
