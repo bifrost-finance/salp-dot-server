@@ -16,6 +16,15 @@ const Contributions = gql`
     salpContributionDetails: [Detail]
   }
 
+  type InvitingInfo {
+    campaignId: String
+    paraId: String
+    inviteeCount: Int
+    invitingAmount: String
+    invitingList: [InvitingDetail]
+    campaignRewardList: [TokenReward]
+  }
+
   type InvitingDetail {
     invitee: String
     timestamp: String
@@ -37,8 +46,9 @@ const Contributions = gql`
     officialContributionDetails: [Detail]
   }
   type SalpInvitingContributions {
-    invitingList: [InvitingDetail]
-    invitingTotal: String
+    campaignInvitingDetails: [InvitingInfo]
+    totalInvitingAmount: String
+    totalInvitingRewardList: [TokenReward]
   }
   type AccountCampContributions {
     accountCampContributions: [CampContribution]

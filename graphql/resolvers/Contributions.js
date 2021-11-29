@@ -392,59 +392,192 @@ const Contributions = {
         order: [["block_timestamp", "DESC"]],
         raw: true,
       };
-      // 如果传了account，刚查询该account的信息，如果没传，则查询所有的信息，这时候会用到limit
+
+      let campaign_condition = {};
       if (campaignIndex) {
         // 先查出来campaign的时间段，然后再查询时间段内的贡献交易
-        let campaign_condition = {
+        campaign_condition = {
           where: {
             campaign_id: campaignIndex,
           },
           raw: true,
         };
+      }
 
-        let campaign_result = await models.SalpCampaigns.findAll(
-          campaign_condition
+      let campaigns = await models.SalpCampaigns.findAll(campaign_condition);
+
+      let accountCampInvitingContributions = [];
+      let accountCampInvitingContributionsFiltered = [];
+      let total_inviting_amount = new BigNumber(0); // 全部campaign加起来的邀请投票数量
+      let rewards_amount_total = {}; // 奖励json格式
+      let rewards_amount_list = []; // 奖励数组格式
+
+      if (campaigns != []) {
+        accountCampInvitingContributions = await Promise.all(
+          campaigns.map(
+            async ({
+              campaign_id,
+              para_id,
+              salp_start_time,
+              salp_end_time,
+            }) => {
+              let condition = {
+                attributes: ["from", "block_timestamp", "para_id", "balance"],
+                where: {
+                  referrer: account,
+                  para_id: para_id,
+                  [Op.and]: [
+                    {
+                      block_timestamp: {
+                        [Op.gte]: new Date(salp_start_time * 1000),
+                      },
+                    },
+                    {
+                      block_timestamp: {
+                        [Op.lte]: new Date(salp_end_time * 1000),
+                      },
+                    },
+                  ],
+                },
+                raw: true,
+              };
+
+              let result = await models.TransferBatches.findAll(condition);
+
+              let condition2 = condition;
+              condition2["attributes"] = [
+                [
+                  sequelize.literal(`COUNT(DISTINCT("from"))`),
+                  "countOfInvitees",
+                ],
+              ];
+              condition2["distinct"] = true;
+
+              let invitee_rs = await models.TransferBatches.findAll(condition2);
+              let invitee_count = 0;
+              if (invitee_rs != []) {
+                invitee_count = invitee_rs[0]["countOfInvitees"];
+              }
+
+              console.log("invitee_count");
+              console.log(invitee_count);
+
+              let inviting_amount = new BigNumber(0);
+              if (result != []) {
+                inviting_amount = getSumOfAFieldFromList(result, "balance");
+
+                // 格工化结果
+                result = result.map(
+                  ({ from, block_timestamp, para_id, balance }) => {
+                    return {
+                      invitee: from,
+                      timestamp: block_timestamp,
+                      paraId: para_id,
+                      balance,
+                    };
+                  }
+                );
+              }
+
+              return {
+                campaign_id,
+                para_id,
+                invitee_count,
+                inviting_amount,
+                inviting_list: result,
+              };
+            }
+          )
         );
 
-        if (campaign_result != []) {
-          condition["where"] = {
-            referrer: account,
-            para_id: campaign_result[0].para_id,
-            [Op.and]: [
-              {
-                block_timestamp: {
-                  [Op.gte]: new Date(campaign_result[0].salp_start_time * 1000),
-                },
-              },
-              {
-                block_timestamp: {
-                  [Op.lte]: new Date(campaign_result[0].salp_end_time * 1000),
-                },
-              },
-            ],
-          };
+        // 把个人没有邀请金额的campaign过滤掉
+        for (const campCon of accountCampInvitingContributions) {
+          if (campCon["inviting_amount"].isGreaterThan(0)) {
+            accountCampInvitingContributionsFiltered.push(campCon);
+          }
         }
-      } else {
-        condition["where"] = { referrer: account };
+
+        // 计算每个campaign的奖励情况
+        accountCampInvitingContributionsFiltered = await Promise.all(
+          accountCampInvitingContributionsFiltered.map(
+            async ({
+              campaign_id,
+              para_id,
+              invitee_count,
+              inviting_amount,
+              inviting_list,
+            }) => {
+              // 获取奖励币种及比率
+              const reward_condition = {
+                where: { campaign_id: campaign_id },
+                raw: true,
+              };
+              let campaign_reward_list = await models.InvitingRewards.findAll(
+                reward_condition
+              );
+
+              campaign_reward_list = campaign_reward_list.map(
+                ({ reward_coin_symbol, reward_coefficient }) => {
+                  const token_reward_amount = inviting_amount.multipliedBy(
+                    reward_coefficient
+                  );
+                  return {
+                    tokenName: reward_coin_symbol,
+                    rewardAmount: token_reward_amount.toFixed(0),
+                  };
+                }
+              );
+
+              return {
+                campaignId: campaign_id,
+                paraId: para_id,
+                inviteeCount: invitee_count,
+                invitingAmount: inviting_amount.toFixed(0),
+                invitingList: inviting_list,
+                campaignRewardList: campaign_reward_list,
+              };
+            }
+          )
+        );
+
+        // 返回之前，计算加总的邀请金额和邀请奖励金额
+        for (const {
+          invitingAmount,
+          campaignRewardList,
+        } of accountCampInvitingContributionsFiltered) {
+          invitingAmount = new BigNumber(invitingAmount);
+          // 累积计算所有campaign的邀请投票金额
+          total_inviting_amount = total_inviting_amount.plus(invitingAmount);
+
+          for (const { tokenName, rewardAmount } of campaignRewardList) {
+            rewardAmount = new BigNumber(rewardAmount);
+            if (!rewards_amount_total[tokenName]) {
+              rewards_amount_total[tokenName] = rewardAmount;
+            } else {
+              rewards_amount_total[tokenName] = rewards_amount_total[
+                tokenName
+              ].plus(rewardAmount);
+            }
+          }
+        }
       }
-      let result = await models.TransferBatches.findAll(condition);
 
-      let inviting_list = result.map(
-        ({ from, block_timestamp, para_id, balance }) => {
-          return {
-            invitee: from,
-            timestamp: block_timestamp,
-            paraId: para_id,
-            balance,
-          };
-        }
-      );
-
-      let inviting_amount = getSumOfAFieldFromList(result, "balance");
+      // 把json变成数组
+      if (rewards_amount_total != {}) {
+        rewards_amount_list = Object.keys(rewards_amount_total).map(
+          (token_symbol) => {
+            return {
+              tokenName: token_symbol,
+              rewardAmount: rewards_amount_total[token_symbol].toFixed(0),
+            };
+          }
+        );
+      }
 
       return {
-        invitingList: inviting_list,
-        invitingTotal: inviting_amount.toFixed(0),
+        campaignInvitingDetails: accountCampInvitingContributionsFiltered,
+        totalInvitingAmount: total_inviting_amount.toFixed(0),
+        totalInvitingRewardList: rewards_amount_list,
       };
     },
     /// 查看个人Salp按campaign分组所获得的分开的贡献

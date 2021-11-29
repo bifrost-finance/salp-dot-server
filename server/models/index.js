@@ -12,6 +12,7 @@ const models = {
   Rewards: require("./rewards").default(sequelize, Sequelize),
   SalpCampaigns: require("./salp_campaigns").default(sequelize, Sequelize),
   TransferBatches: require("./transfer_batches").default(sequelize, Sequelize),
+  InvitingRewards: require("./inviting_rewards").default(sequelize, Sequelize),
 };
 
 Object.keys(models).forEach((key) => {
