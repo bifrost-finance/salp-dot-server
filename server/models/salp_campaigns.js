@@ -30,7 +30,15 @@ const salp_campaigns = (sequelize, DataTypes) => {
         validate: {
           len: [10, 10],
         },
-      }
+      },
+      // 早鸟奖励结束时间
+      early_bird_end_time: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        validate: {
+          len: [10, 10],
+        },
+      },
     },
     {
       underscored: true,

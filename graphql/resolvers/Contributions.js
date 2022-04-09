@@ -104,16 +104,16 @@ const Contributions = {
             reward_coin_symbol,
             reward_coefficient,
           } of reward_list) {
-            const token_reward_amount = total_amount.multipliedBy(
-              reward_coefficient
-            );
+            const token_reward_amount =
+              total_amount.multipliedBy(reward_coefficient);
 
             if (!rewards_amount_total[reward_coin_symbol]) {
               rewards_amount_total[reward_coin_symbol] = token_reward_amount;
             } else {
-              rewards_amount_total[reward_coin_symbol] = rewards_amount_total[
-                reward_coin_symbol
-              ].plus(token_reward_amount);
+              rewards_amount_total[reward_coin_symbol] =
+                rewards_amount_total[reward_coin_symbol].plus(
+                  token_reward_amount
+                );
             }
           }
         }
@@ -291,16 +291,16 @@ const Contributions = {
             reward_coin_symbol,
             reward_coefficient,
           } of reward_list) {
-            const token_reward_amount = total_amount.multipliedBy(
-              reward_coefficient
-            );
+            const token_reward_amount =
+              total_amount.multipliedBy(reward_coefficient);
 
             if (!rewards_amount_total[reward_coin_symbol]) {
               rewards_amount_total[reward_coin_symbol] = token_reward_amount;
             } else {
-              rewards_amount_total[reward_coin_symbol] = rewards_amount_total[
-                reward_coin_symbol
-              ].plus(token_reward_amount);
+              rewards_amount_total[reward_coin_symbol] =
+                rewards_amount_total[reward_coin_symbol].plus(
+                  token_reward_amount
+                );
             }
           }
         }
@@ -518,9 +518,8 @@ const Contributions = {
 
               campaign_reward_list = campaign_reward_list.map(
                 ({ reward_coin_symbol, reward_coefficient }) => {
-                  const token_reward_amount = inviting_amount.multipliedBy(
-                    reward_coefficient
-                  );
+                  const token_reward_amount =
+                    inviting_amount.multipliedBy(reward_coefficient);
                   return {
                     tokenName: reward_coin_symbol,
                     rewardAmount: token_reward_amount.toFixed(0),
@@ -554,9 +553,8 @@ const Contributions = {
             if (!rewards_amount_total[tokenName]) {
               rewards_amount_total[tokenName] = rewardAmount;
             } else {
-              rewards_amount_total[tokenName] = rewards_amount_total[
-                tokenName
-              ].plus(rewardAmount);
+              rewards_amount_total[tokenName] =
+                rewards_amount_total[tokenName].plus(rewardAmount);
             }
           }
         }
@@ -580,6 +578,188 @@ const Contributions = {
         totalInvitingRewardList: rewards_amount_list,
       };
     },
+    /// 查看个人被邀请情况
+    getSalpInvitedContributions: async (
+      parent,
+      { account, campaignIndex },
+      { models }
+    ) => {
+      // 如果不传参数，则返回所有campaign列表
+      let condition = {
+        attributes: ["from", "block_timestamp", "para_id", "balance"],
+        order: [["block_timestamp", "DESC"]],
+        raw: true,
+      };
+
+      let campaign_condition = {};
+      if (campaignIndex) {
+        // 先查出来campaign的时间段，然后再查询时间段内的贡献交易
+        campaign_condition = {
+          where: {
+            campaign_id: campaignIndex,
+          },
+          raw: true,
+        };
+      }
+
+      let campaigns = await models.SalpCampaigns.findAll(campaign_condition);
+
+      let accountCampInvitedContributions = [];
+      let accountCampInvitedContributionsFiltered = [];
+      let total_invited_amount = new BigNumber(0); // 全部campaign加起来的邀请投票数量
+      let rewards_amount_total = {}; // 奖励json格式
+      let rewards_amount_list = []; // 奖励数组格式
+
+      if (campaigns != []) {
+        accountCampInvitedContributions = await Promise.all(
+          campaigns.map(
+            async ({
+              campaign_id,
+              para_id,
+              salp_start_time,
+              salp_end_time,
+            }) => {
+              let condition = {
+                attributes: [
+                  "referrer",
+                  "block_timestamp",
+                  "para_id",
+                  "balance",
+                ],
+                where: {
+                  from: account,
+                  referrer: {
+                    [Op.ne]: null,
+                  },
+                  para_id: para_id,
+                  [Op.and]: [
+                    {
+                      block_timestamp: {
+                        [Op.gte]: new Date(salp_start_time * 1000),
+                      },
+                    },
+                    {
+                      block_timestamp: {
+                        [Op.lte]: new Date(salp_end_time * 1000),
+                      },
+                    },
+                  ],
+                },
+                raw: true,
+              };
+
+              let result = await models.TransferBatches.findAll(condition);
+
+              let invited_amount = new BigNumber(0);
+              if (result != []) {
+                invited_amount = getSumOfAFieldFromList(result, "balance");
+
+                // 格式化结果
+                result = result.map(
+                  ({ referrer, block_timestamp, para_id, balance }) => {
+                    return {
+                      inviter: referrer,
+                      timestamp: block_timestamp,
+                      paraId: para_id,
+                      balance,
+                    };
+                  }
+                );
+              }
+
+              return {
+                campaign_id,
+                para_id,
+                invited_amount,
+                invited_list: result,
+              };
+            }
+          )
+        );
+
+        // 把个人没有邀请金额的campaign过滤掉
+        for (const campCon of accountCampInvitedContributions) {
+          if (campCon["invited_amount"].isGreaterThan(0)) {
+            accountCampInvitedContributionsFiltered.push(campCon);
+          }
+        }
+
+        // 计算每个campaign的奖励情况
+        accountCampInvitedContributionsFiltered = await Promise.all(
+          accountCampInvitedContributionsFiltered.map(
+            async ({ campaign_id, para_id, invited_amount, invited_list }) => {
+              // 获取奖励币种及比率
+              const reward_condition = {
+                where: { campaign_id: campaign_id },
+                raw: true,
+              };
+              let campaign_reward_list = await models.InvitingRewards.findAll(
+                reward_condition
+              );
+
+              campaign_reward_list = campaign_reward_list.map(
+                ({ reward_coin_symbol, invited_reward_coefficient }) => {
+                  const token_reward_amount = invited_amount.multipliedBy(
+                    invited_reward_coefficient
+                  );
+                  return {
+                    tokenName: reward_coin_symbol,
+                    rewardAmount: token_reward_amount.toFixed(0),
+                  };
+                }
+              );
+
+              return {
+                campaignId: campaign_id,
+                paraId: para_id,
+                invitedAmount: invited_amount.toFixed(0),
+                invitedList: invited_list,
+                campaignRewardList: campaign_reward_list,
+              };
+            }
+          )
+        );
+
+        // 返回之前，计算加总的邀请金额和邀请奖励金额
+        for (const {
+          invitedAmount,
+          campaignRewardList,
+        } of accountCampInvitedContributionsFiltered) {
+          invitedAmount = new BigNumber(invitedAmount);
+          // 累积计算所有campaign的邀请投票金额
+          total_invited_amount = total_invited_amount.plus(invitedAmount);
+
+          for (const { tokenName, rewardAmount } of campaignRewardList) {
+            rewardAmount = new BigNumber(rewardAmount);
+            if (!rewards_amount_total[tokenName]) {
+              rewards_amount_total[tokenName] = rewardAmount;
+            } else {
+              rewards_amount_total[tokenName] =
+                rewards_amount_total[tokenName].plus(rewardAmount);
+            }
+          }
+        }
+      }
+
+      // 把json变成数组
+      if (rewards_amount_total != {}) {
+        rewards_amount_list = Object.keys(rewards_amount_total).map(
+          (token_symbol) => {
+            return {
+              tokenName: token_symbol,
+              rewardAmount: rewards_amount_total[token_symbol].toFixed(0),
+            };
+          }
+        );
+      }
+
+      return {
+        campaignInvitedDetails: accountCampInvitedContributionsFiltered,
+        totalInvitedAmount: total_invited_amount.toFixed(0),
+        totalInvitedRewardList: rewards_amount_list,
+      };
+    },
+
     /// 查看个人Salp按campaign分组所获得的分开的贡献
     getSalpPerCampaignContributions: async (
       parent,
@@ -778,6 +958,227 @@ const Contributions = {
       return {
         accountCampContributions: accountCampContributionsFiltered,
       };
+    },
+    /// 获取个人SALP总贡献金额及衍生品和奖励情况
+    getTotalContributionsNRewards: async (
+      parent,
+      { account, campaignIndex },
+      { models }
+    ) => {
+      // 先查出来campaign的时间段，然后再查询时间段内的贡献交易
+      let campaign_condition = {
+        where: {
+          campaign_id: campaignIndex,
+        },
+        raw: true,
+      };
+
+      let campaign = await models.SalpCampaigns.findOne(campaign_condition);
+
+      if (campaign) {
+        let {
+          campaign_id,
+          para_id,
+          salp_start_time,
+          salp_end_time,
+          early_bird_end_time,
+        } = campaign;
+
+        // 计算因贡献而得的直接奖励
+        let condition1 = {
+          attributes: [
+            [sequelize.literal(`SUM(balance::bigint)`), "straight_amount"],
+          ],
+          where: {
+            from: account,
+            para_id: para_id,
+            [Op.and]: [
+              {
+                block_timestamp: {
+                  [Op.gte]: new Date(salp_start_time * 1000),
+                },
+              },
+              {
+                block_timestamp: {
+                  [Op.lte]: new Date(salp_end_time * 1000),
+                },
+              },
+            ],
+          },
+          raw: true,
+        };
+        let result1 = await models.TransferBatches.findOne(condition1);
+
+        let straight_amount = new BigNumber(0);
+        if (result1.straight_amount) {
+          straight_amount = new BigNumber(result1["straight_amount"]);
+        }
+
+        console.log("result1: ", result1);
+
+        // 计算早鸟奖励
+        let condition2 = {
+          attributes: [
+            [sequelize.literal(`SUM(balance::bigint)`), "early_bird_amount"],
+          ],
+          where: {
+            from: account,
+            para_id: para_id,
+            [Op.and]: [
+              {
+                block_timestamp: {
+                  [Op.gte]: new Date(salp_start_time * 1000),
+                },
+              },
+              {
+                block_timestamp: {
+                  [Op.lte]: new Date(early_bird_end_time * 1000),
+                },
+              },
+            ],
+          },
+          raw: true,
+        };
+        let result2 = await models.TransferBatches.findOne(condition2);
+
+        let early_bird_amount = new BigNumber(0);
+        if (result2.early_bird_amount) {
+          early_bird_amount = new BigNumber(result2["early_bird_amount"]);
+        }
+
+        console.log("result2: ", result2);
+
+        // 获取奖励币种及比率
+        const reward_condition = {
+          where: { campaign_id: campaign_id },
+          raw: true,
+        };
+        const reward = await models.Rewards.findOne(reward_condition);
+
+        let reward_coefficient = 0;
+        let early_bird_extra_reward_coefficient = 0;
+        if (reward) {
+          reward_coefficient = reward.reward_coefficient;
+          early_bird_extra_reward_coefficient =
+            reward.early_bird_extra_reward_coefficient;
+        }
+
+        // 直接奖励金额
+        const token_reward_amount =
+          straight_amount.multipliedBy(reward_coefficient);
+
+        // 早鸟奖励金额
+        const early_bird_reward_amount = early_bird_amount.multipliedBy(
+          early_bird_extra_reward_coefficient
+        );
+
+        // 下面计算邀请奖励和被邀请奖励
+        // 邀请奖励
+
+        let condition3 = {
+          attributes: [
+            [sequelize.literal(`SUM(balance::bigint)`), "inviting_amount"],
+          ],
+          where: {
+            referrer: account,
+            para_id: para_id,
+            [Op.and]: [
+              {
+                block_timestamp: {
+                  [Op.gte]: new Date(salp_start_time * 1000),
+                },
+              },
+              {
+                block_timestamp: {
+                  [Op.lte]: new Date(salp_end_time * 1000),
+                },
+              },
+            ],
+          },
+          raw: true,
+        };
+
+        let result3 = await models.TransferBatches.findOne(condition3);
+
+        let inviting_amount = new BigNumber(0);
+        if (result3.inviting_amount) {
+          inviting_amount = new BigNumber(result3["inviting_amount"]);
+        }
+
+        // 计算被邀请金额
+        let condition4 = {
+          attributes: [
+            [sequelize.literal(`SUM(balance::bigint)`), "invited_amount"],
+          ],
+          where: {
+            from: account,
+            referrer: {
+              [Op.ne]: null,
+            },
+            para_id: para_id,
+            [Op.and]: [
+              {
+                block_timestamp: {
+                  [Op.gte]: new Date(salp_start_time * 1000),
+                },
+              },
+              {
+                block_timestamp: {
+                  [Op.lte]: new Date(salp_end_time * 1000),
+                },
+              },
+            ],
+          },
+          raw: true,
+        };
+
+        let result4 = await models.TransferBatches.findOne(condition4);
+
+        let invited_amount = new BigNumber(0);
+        if (result4.invited_amount) {
+          invited_amount = new BigNumber(result4["invited_amount"]);
+        }
+
+        // 获取邀请奖励币种及比率
+        const inviting_reward_condition = {
+          where: { campaign_id: campaign_id },
+          raw: true,
+        };
+        let campaign_reward = await models.InvitingRewards.findOne(
+          inviting_reward_condition
+        );
+
+        let inviting_reward_coefficient = 0;
+        let invited_reward_coefficient = 0;
+
+        if (campaign_reward) {
+          inviting_reward_coefficient = campaign_reward.reward_coefficient;
+          invited_reward_coefficient =
+            campaign_reward.invited_reward_coefficient;
+        }
+
+        const inviting_reward_amount = inviting_amount.multipliedBy(
+          inviting_reward_coefficient
+        );
+
+        const invited_reward_amount = invited_amount.multipliedBy(
+          invited_reward_coefficient
+        );
+
+        // 加总所有的奖励
+        const total_reward = token_reward_amount
+          .plus(early_bird_reward_amount)
+          .plus(inviting_reward_amount)
+          .plus(invited_reward_amount);
+
+        return {
+          token_reward_amount: token_reward_amount.toFixed(0),
+          early_bird_reward_amount: early_bird_reward_amount.toFixed(0),
+          inviting_reward_amount: inviting_reward_amount.toFixed(0),
+          invited_reward_amount: invited_reward_amount.toFixed(0),
+          total_reward: total_reward.toFixed(0),
+        };
+      }
     },
   },
 };

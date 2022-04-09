@@ -7,6 +7,14 @@ const Contributions = gql`
     totalRewardList: [TokenReward]
   }
 
+  type TotalContributionsNRewards {
+    token_reward_amount: String
+    early_bird_reward_amount: String
+    inviting_reward_amount: String
+    invited_reward_amount: String
+    total_reward: String
+  }
+
   type TokenReward {
     tokenName: String
     rewardAmount: String
@@ -25,8 +33,23 @@ const Contributions = gql`
     campaignRewardList: [TokenReward]
   }
 
+  type InvitedInfo {
+    campaignId: String
+    paraId: String
+    invitedAmount: String
+    invitedList: [InvitedDetail]
+    campaignRewardList: [TokenReward]
+  }
+
   type InvitingDetail {
     invitee: String
+    timestamp: String
+    paraId: String
+    balance: String
+  }
+
+  type InvitedDetail {
+    inviter: String
     timestamp: String
     paraId: String
     balance: String
@@ -50,6 +73,12 @@ const Contributions = gql`
     totalInvitingAmount: String
     totalInvitingRewardList: [TokenReward]
   }
+  type SalpInvitedContributions {
+    campaignInvitedDetails: [InvitedInfo]
+    totalInvitedAmount: String
+    totalInvitedRewardList: [TokenReward]
+  }
+
   type AccountCampContributions {
     accountCampContributions: [CampContribution]
   }
@@ -81,6 +110,10 @@ const Contributions = gql`
       account: String!
       campaignIndex: String
     ): SalpInvitingContributions
+    getSalpInvitedContributions(
+      account: String!
+      campaignIndex: String
+    ): SalpInvitedContributions
     getSalpPerCampaignContributions(
       account: String!
       campaignIndex: String
@@ -89,6 +122,10 @@ const Contributions = gql`
       account: String!
       campaignIndex: String
     ): AccountCampContributions
+    getTotalContributionsNRewards(
+      account: String!
+      campaignIndex: String!
+    ): TotalContributionsNRewards # Salp渠道贡献及各种奖励加总
   }
 `;
 

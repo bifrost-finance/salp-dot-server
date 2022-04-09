@@ -338,6 +338,61 @@ const Campaign = {
 
       return { campaignTimeSeries };
     },
+
+    /// 查询某个campaign的奖励信息
+    getBncRewardPoints: async (
+      parent,
+      { paraId, campaignIndex },
+      { models }
+    ) => {
+      let condition = {
+        attributes: [
+          "campaign_id",
+          "para_id",
+          "reward_coin_symbol",
+          "reward_coefficient",
+        ],
+        order: [
+          ["para_id", "ASC"],
+          ["campaign_id", "ASC"],
+        ],
+        where: {
+          campaign_id: campaignIndex,
+          para_id: paraId,
+        },
+        raw: true,
+      };
+
+      let result = await models.Rewards.findOne(condition);
+
+      if (result) {
+        let { reward_coefficient, early_bird_extra_reward_coefficient } =
+          result;
+
+        // 再获取一个campaign时间
+        let campaign_condition = {
+          where: {
+            campaign_id: campaignIndex,
+          },
+          raw: true,
+        };
+
+        let campaign = await models.SalpCampaigns.findOne(campaign_condition);
+
+        // Campaign肯定是存在的，因为已经有外面一层的判断了
+        // 获取现在时间，如果现在时间小于early_bird结束时间，则返回 正常奖励+早鸟奖励。如果大于，则只返回正常奖励
+        let now_time = Date.now() / 1000;
+        let total_reward_points;
+        if (now_time > campaign.early_bird_end_time) {
+          total_reward_points = reward_coefficient;
+        } else {
+          total_reward_points =
+            reward_coefficient + early_bird_extra_reward_coefficient;
+        }
+
+        return total_reward_points;
+      }
+    },
   },
 };
 

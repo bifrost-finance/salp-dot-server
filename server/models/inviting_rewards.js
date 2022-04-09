@@ -23,6 +23,10 @@ const inviting_rewards = (sequelize, DataTypes) => {
         allowNull: false,
         primaryKey: true,
       },
+      invited_reward_coefficient: {
+        type: DataTypes.DOUBLE,
+        allowNull: false,
+      },
     },
     {
       underscored: true,

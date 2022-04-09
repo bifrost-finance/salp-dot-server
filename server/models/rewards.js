@@ -23,6 +23,11 @@ const rewards = (sequelize, DataTypes) => {
         allowNull: false,
         primaryKey: true,
       },
+      early_bird_extra_reward_coefficient: {
+        type: DataTypes.DOUBLE,
+        allowNull: false,
+        primaryKey: true,
+      },
     },
     {
       underscored: true,

@@ -54,11 +54,15 @@ const Campaign = gql`
   }
 
   type Query {
-    getCampaignInfo(paraId: String, campaignIndex: String ): CampaignInfo
-    getSalpCampaignStats(paraId: String, campaignIndex: String ): CampaignStats
-    getCampaignRewards(paraId: String, campaignIndex: String ): CampaignRewards
-    getParaLatestCampaign(paraId: String ): LatestCampaigns
-    getAccumulatedContributionsSeries(paraId: String, campaignIndex: String): CampaignTimeSeries
+    getCampaignInfo(paraId: String, campaignIndex: String): CampaignInfo
+    getSalpCampaignStats(paraId: String, campaignIndex: String): CampaignStats
+    getCampaignRewards(paraId: String, campaignIndex: String): CampaignRewards
+    getParaLatestCampaign(paraId: String): LatestCampaigns
+    getAccumulatedContributionsSeries(
+      paraId: String
+      campaignIndex: String
+    ): CampaignTimeSeries
+    getBncRewardPoints(paraId: String!, campaignIndex: String!): Float
   }
 `;
 
