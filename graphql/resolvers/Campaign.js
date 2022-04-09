@@ -351,6 +351,7 @@ const Campaign = {
           "para_id",
           "reward_coin_symbol",
           "reward_coefficient",
+          "early_bird_extra_reward_coefficient",
         ],
         order: [
           ["para_id", "ASC"],
@@ -364,6 +365,8 @@ const Campaign = {
       };
 
       let result = await models.Rewards.findOne(condition);
+
+      console.log("result: ", result);
 
       if (result) {
         let { reward_coefficient, early_bird_extra_reward_coefficient } =
