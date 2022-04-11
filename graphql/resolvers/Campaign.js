@@ -412,7 +412,7 @@ const Campaign = {
             early_bird_extra_reward_coefficient;
         }
 
-        return total_reward_points;
+        return total_reward_points / 100;
       }
     },
   },
