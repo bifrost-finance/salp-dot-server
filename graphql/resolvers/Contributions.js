@@ -1113,7 +1113,7 @@ const Contributions = {
           where: {
             from: account,
             referrer: {
-              [Op.ne]: null,
+              [Op.ne]: "",
             },
             para_id: para_id,
             [Op.and]: [
@@ -1133,6 +1133,8 @@ const Contributions = {
         };
 
         let result4 = await models.TransferBatches.findOne(condition4);
+
+        console.log("result4: ", result4);
 
         let invited_amount = new BigNumber(0);
         if (result4.invited_amount) {
