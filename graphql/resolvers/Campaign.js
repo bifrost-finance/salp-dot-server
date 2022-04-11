@@ -366,11 +366,28 @@ const Campaign = {
 
       let result = await models.Rewards.findOne(condition);
 
-      console.log("result: ", result);
-
       if (result) {
         let { reward_coefficient, early_bird_extra_reward_coefficient } =
           result;
+
+        // 再获取一个被邀请的奖励参数
+        let condition2 = {
+          attributes: ["campaign_id", "para_id", "invited_reward_coefficient"],
+          order: [
+            ["para_id", "ASC"],
+            ["campaign_id", "ASC"],
+          ],
+          where: {
+            campaign_id: campaignIndex,
+            para_id: paraId,
+          },
+          raw: true,
+        };
+
+        let result2 = await models.InvitingRewards.findOne(condition2);
+        let invited_reward_coefficient = result2
+          ? result2.invited_reward_coefficient
+          : 0;
 
         // 再获取一个campaign时间
         let campaign_condition = {
@@ -387,10 +404,12 @@ const Campaign = {
         let now_time = Date.now() / 1000;
         let total_reward_points;
         if (now_time > campaign.early_bird_end_time) {
-          total_reward_points = reward_coefficient;
+          total_reward_points = reward_coefficient + invited_reward_coefficient;
         } else {
           total_reward_points =
-            reward_coefficient + early_bird_extra_reward_coefficient;
+            reward_coefficient +
+            invited_reward_coefficient +
+            early_bird_extra_reward_coefficient;
         }
 
         return total_reward_points;
