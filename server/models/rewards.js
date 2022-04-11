@@ -28,6 +28,11 @@ const rewards = (sequelize, DataTypes) => {
         allowNull: false,
         primaryKey: true,
       },
+      channel_reward_coefficient: {
+        type: DataTypes.DOUBLE,
+        allowNull: false,
+        primaryKey: true,
+      },
     },
     {
       underscored: true,

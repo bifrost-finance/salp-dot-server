@@ -9,6 +9,7 @@ const Contributions = gql`
 
   type TotalContributionsNRewards {
     token_reward_amount: String
+    channel_reward_amount: String
     early_bird_reward_amount: String
     inviting_reward_amount: String
     invited_reward_amount: String

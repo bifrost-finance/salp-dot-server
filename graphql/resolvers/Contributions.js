@@ -984,7 +984,7 @@ const Contributions = {
           early_bird_end_time,
         } = campaign;
 
-        // 计算因贡献而得的直接奖励
+        // 计算因贡献而得的直接奖励+salp渠道所获的奖励
         let condition1 = {
           attributes: [
             [sequelize.literal(`SUM(balance::bigint)`), "straight_amount"],
@@ -1057,15 +1057,22 @@ const Contributions = {
 
         let reward_coefficient = 0;
         let early_bird_extra_reward_coefficient = 0;
+        let channel_reward_coefficient = 0;
         if (reward) {
           reward_coefficient = reward.reward_coefficient;
           early_bird_extra_reward_coefficient =
             reward.early_bird_extra_reward_coefficient;
+          channel_reward_coefficient = reward.channel_reward_coefficient;
         }
 
         // 直接奖励金额
         const token_reward_amount =
           straight_amount.multipliedBy(reward_coefficient);
+
+        // Salp渠道奖励金额
+        const channel_reward_amount = straight_amount.multipliedBy(
+          channel_reward_coefficient
+        );
 
         // 早鸟奖励金额
         const early_bird_reward_amount = early_bird_amount.multipliedBy(
@@ -1170,6 +1177,7 @@ const Contributions = {
         // 加总所有的奖励
         const total_reward = token_reward_amount
           .plus(early_bird_reward_amount)
+          .plus(channel_reward_amount)
           .plus(inviting_reward_amount)
           .plus(invited_reward_amount);
 
@@ -1178,6 +1186,7 @@ const Contributions = {
           early_bird_reward_amount: early_bird_reward_amount.toFixed(0),
           inviting_reward_amount: inviting_reward_amount.toFixed(0),
           invited_reward_amount: invited_reward_amount.toFixed(0),
+          channel_reward_amount: channel_reward_amount.toFixed(0),
           total_reward: total_reward.toFixed(0),
         };
       }
